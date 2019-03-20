@@ -17,8 +17,11 @@ import pymongo
 import pytz
 import json
 import bisect
+from decimal import *
+import uuid
 
 from helper.sqs.manager import SqsManager
+from helper.dynamodb.manager import DynamoManager, IDGenerator
 
 
 # Set this up separate from the logger used in this scope, so services logging messages are caught and logged into user's files.
@@ -92,6 +95,7 @@ def _unpackUserException(raw):
 class Sync:
 
     _sqs_manager = None
+    _dynamo_manager = None
     SyncInterval = timedelta(hours=1)
     SyncIntervalJitter = timedelta(minutes=5)
     MinimumSyncInterval = timedelta(seconds=30)
@@ -244,6 +248,20 @@ class Sync:
             logger.debug(reschedule_confirm_message)
             sync_time = (datetime.utcnow() - sync_start).total_seconds()
             db.sync_worker_stats.insert({"Timestamp": datetime.utcnow(), "Worker": os.getpid(), "Host": socket.gethostname(), "TimeTaken": sync_time})
+            # TODO: faire l'ajout de la ligne sync_worker_stats dans dynamo
+            self._dynamo_manager = DynamoManager()
+            self._dynamo_manager.get_table("sync_worker_stats")
+            print(os.getpid())
+            print(IDGenerator.default())
+            print(datetime.utcnow())
+            self._dynamo_manager.add_item({
+                "id": str(uuid.uuid4().hex),
+                "Timestamp": datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
+                "Worker": os.getpid(),
+                "Host": socket.gethostname(),
+                #"TimeTaken": Decimal.from_float(sync_time)
+            })
+
 
         self._sqs_manager.delete_message_by_receipt_handle(receipt_handle)
 
