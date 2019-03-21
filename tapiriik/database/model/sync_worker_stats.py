@@ -5,11 +5,11 @@ import decimal
 import boto3
 import uuid
 
-class Sync_worker_stats():
+class Sync_worker_stats:
 
     _table_name = 'sync_worker_stats'
 
-    __create_conf = {
+    _create_conf = {
         'AttributeDefinitions': [{
             'AttributeName': 'id',
             'AttributeType': 'S'
@@ -28,7 +28,7 @@ class Sync_worker_stats():
     timetaken = None
 
     # TODO: try to set only one value and see if other attributes are updated (or not, they shouldn't)
-    def __init__(self, sync_worker_stats):
+    def __init__(self, sync_worker_stats={}):
         if 'id' in sync_worker_stats:
             self.id = sync_worker_stats['id']
         else:
@@ -42,6 +42,12 @@ class Sync_worker_stats():
             self.timestamp = sync_worker_stats['Timestamp']
         if 'Timetaken' in sync_worker_stats:
             self.timetaken = sync_worker_stats['Timetaken']
+
+    def __get_install_conf(self, format='json'):
+
+        if format is 'json':
+            return json.dumps(self.__create_conf)
+        return self.__create_conf
 
     def get_item(self, format='json'):
         response = {

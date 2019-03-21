@@ -1,7 +1,7 @@
 from tapiriik.database import db
 from datetime import datetime
 from pymongo.read_preferences import ReadPreference
-from helper.sqs.manager import SqsManager
+from tapiriik.helper.sqs.manager import SqsManager
 import time
 import uuid
 import json
