@@ -5,6 +5,7 @@ import json
 import decimal
 import boto3
 from boto3.dynamodb.conditions import Key, Attr
+from tapiriik.settings import DYNAMO_DB_PREFIX_TABLE
 import uuid
 
 # Helper class to convert a DynamoDB item to JSON.
@@ -37,9 +38,10 @@ class DynamoManager:
         print("[Helper DynamoDB]--- Define DynamoDB resource in %s AWS zone" % self._AWS_REGION)
 
     def get_table(self, table):
-        self._table = self._resource.Table(table)
-        self._table_name = table
-        print('[Helper DynamoDB]--- Helper is now using %s table' % table)
+        # Change resource table and store it in object
+        self._table = self._resource.Table(DYNAMO_DB_PREFIX_TABLE+table)
+        self._table_name = DYNAMO_DB_PREFIX_TABLE+table
+        print('[Helper DynamoDB]--- Helper is now using %s table' % DYNAMO_DB_PREFIX_TABLE+table)
         return self._table
 
     def insert(self, table, item, format='json'):
@@ -48,11 +50,13 @@ class DynamoManager:
         filter_expression = Key('id').eq(item['id'])
         projection_expression = "id"
         expression_attribute_names = {}
+
         response = self._table.scan(
             FilterExpression=filter_expression,
             ProjectionExpression=projection_expression,
             ExpressionAttributeNames=expression_attribute_names
         )
+
         if len(response['Items']) is 0:
             response = self._table.put_item(Item=item)
             if response['ResponseMetadata']['HTTPStatusCode'] == 200:
@@ -72,7 +76,7 @@ class DynamoManager:
         return data
 
     """
-        Serie of function to get ultiple lines
+        Serie of function to get multiple lines
     """
     def scan(self, filter_expression, projection_expression, expression_attribute_names):
         response = self._table.scan(

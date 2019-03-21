@@ -1,8 +1,10 @@
 from tapiriik.database import db, cachedb, redis
 from tapiriik.services import Service, ServiceRecord, APIExcludeActivity, ServiceException, ServiceExceptionScope, ServiceWarning, UserException, UserExceptionType
 from tapiriik.settings import USER_SYNC_LOGS, DISABLED_SERVICES, WITHDRAWN_SERVICES
+from tapiriik.settings import DYNAMO_DB_PREFIX_TABLE
 from .activity_record import ActivityRecord, ActivityServicePrescence
 from datetime import datetime, timedelta
+from decimal import *
 import sys
 import os
 import io
@@ -17,11 +19,11 @@ import pymongo
 import pytz
 import json
 import bisect
-from decimal import *
 import uuid
 
-from helper.sqs.manager import SqsManager
-from helper.dynamodb.manager import DynamoManager, IDGenerator
+from tapiriik.helper.sqs.manager import SqsManager
+from tapiriik.helper.dynamodb.manager import DynamoManager
+from tapiriik.database.model.sync_worker_stats import Sync_worker_stats
 
 
 # Set this up separate from the logger used in this scope, so services logging messages are caught and logged into user's files.
@@ -101,7 +103,6 @@ class Sync:
     MinimumSyncInterval = timedelta(seconds=30)
     MaximumIntervalBeforeExhaustiveSync = timedelta(days=14)  # Based on the general page size of 50 activites, this would be >3/day...
 
-    # TODO : change sync to real class
     def __init__(self):
         print("-----[ INIT SYNC ]-----")
 
@@ -116,7 +117,7 @@ class Sync:
 
     def InitializeWorkerBindings(self):
 
-        # TODO: Check if we've to use these var with SQS
+        # TODO: Delete this function when SQS dev are validate
         """
         Sync._channel = mq.channel()
         Sync._exchange = kombu.Exchange("tapiriik-users", type="direct")(Sync._channel)
@@ -156,16 +157,11 @@ class Sync:
         else:
             print('[Sync.PerformGlobalSync]--- Nothing to sync !')
 
-    # TODO : temp var _sqs_manager, change it to self.VAR when class will be refactored
     def _consumeSyncTask(self, body, receipt_handle, heartbeat_callback_direct, version):
         from tapiriik.auth import User
 
         user_id = body["user_id"]
         user = User.Get(user_id)
-
-        # TODO : avec sqs manager dans self, on peut se passer des deux lignes suivantes
-        # _sqs_manager = SqsManager()
-        # _sqs_manager.get_queue()
 
         # if user doesn't exists, stop process and delete message
         if user is None:
@@ -248,20 +244,20 @@ class Sync:
             logger.debug(reschedule_confirm_message)
             sync_time = (datetime.utcnow() - sync_start).total_seconds()
             db.sync_worker_stats.insert({"Timestamp": datetime.utcnow(), "Worker": os.getpid(), "Host": socket.gethostname(), "TimeTaken": sync_time})
-            # TODO: faire l'ajout de la ligne sync_worker_stats dans dynamo
-            self._dynamo_manager = DynamoManager()
-            self._dynamo_manager.get_table("sync_worker_stats")
-            print(os.getpid())
-            print(IDGenerator.default())
-            print(datetime.utcnow())
-            self._dynamo_manager.add_item({
-                "id": str(uuid.uuid4().hex),
-                "Timestamp": datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
-                "Worker": os.getpid(),
-                "Host": socket.gethostname(),
-                #"TimeTaken": Decimal.from_float(sync_time)
-            })
 
+
+            # TODO: faire l'ajout de la ligne sync_worker_stats dans dynamo
+            sync_worker_stat = Sync_worker_stats(
+                {
+                    "Timestamp": datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
+                    "Worker": os.getpid(),
+                    "Host": socket.gethostname(),
+                    "TimeTaken": round(Decimal.from_float(sync_time), 3)
+                }
+            )
+
+            self._dynamo_manager = DynamoManager()
+            self._dynamo_manager.insert('sync_worker_stats', sync_worker_stat.get_item('dict'))
 
         self._sqs_manager.delete_message_by_receipt_handle(receipt_handle)
 

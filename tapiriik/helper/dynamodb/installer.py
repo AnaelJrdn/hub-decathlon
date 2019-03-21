@@ -1,6 +1,6 @@
 # Synchronization module for decathloncoach.com
 # (c) 2019 Anael Jourdain, anael.jourdain.partner@decathlon.com
-from tapiriik.settings import AWS_REGION
+from tapiriik.settings import AWS_REGION, DYNAMO_DB_PREFIX_TABLE
 import json
 from tapiriik.helper.dynamodb.manager import DynamoManager
 import importlib
@@ -75,8 +75,8 @@ class DynamoInstaller():
         for table in self._table_list:
 
             if table['table_name']:
-                print('[Install DynamoDB]--- Working on %s' % table['table_name'])
-
+                prefixed_table_name = DYNAMO_DB_PREFIX_TABLE + table['table_name']
+                print('[Install DynamoDB]--- Working on %s' % prefixed_table_name)
                 # Get module of current table to import
                 module_class = locate('tapiriik.database.model.{0}'.format(table['file_name']))
                 # Get class of current table to import
@@ -87,19 +87,19 @@ class DynamoInstaller():
                 create_conf = getattr(instance_class, '_create_conf')
 
                 # If conf says "delete before create" and if table exist in db
-                if table['delete_before_create'] is True and table['table_name'] in current_tables['TableNames']:
-                    print('[Install DynamoDB]--- Deleting %s' % table['table_name'])
+                if table['delete_before_create'] is True and prefixed_table_name in current_tables['TableNames']:
+                    print('[Install DynamoDB]--- Deleting %s' % prefixed_table_name)
                     self.delete_table(table['table_name'])
 
                 # If table doesn't exist in db, create it
-                if table['table_name'] in current_tables['TableNames']:
-                    print('[Install DynamoDB]--- Can\'t create %s, table already exist' % table['table_name'])
+                if prefixed_table_name in current_tables['TableNames']:
+                    print('[Install DynamoDB]--- Can\'t create %s, table already exist' % prefixed_table_name)
                 else:
-                    print('[Install DynamoDB]--- Creating %s' % table['table_name'])
+                    print('[Install DynamoDB]--- Creating %s' % prefixed_table_name)
                     if create_conf:
                         self._dynamodb_manager._resource.create_table(
                             AttributeDefinitions=create_conf['AttributeDefinitions'],
-                            TableName=table['table_name'],
+                            TableName=prefixed_table_name,
                             KeySchema=create_conf['KeySchema'],
                             ProvisionedThroughput=create_conf['ProvisionedThroughput']
                         )
@@ -110,7 +110,7 @@ class DynamoInstaller():
     def delete_table(self, table, format='json'):
         if table:
             try:
-                delete_response = self._dynamodb_manager._client.delete_table(TableName=table)
+                delete_response = self._dynamodb_manager._client.delete_table(TableName=DYNAMO_DB_PREFIX_TABLE+table)
                 if delete_response['TableDescription']['TableStatus'] is 'DELETING':
                     result = 'Success'
                     msg = 'Table is deleting'

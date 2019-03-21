@@ -40,8 +40,8 @@ class Sync_worker_stats:
             self.host = sync_worker_stats['Host']
         if 'Timestamp' in sync_worker_stats:
             self.timestamp = sync_worker_stats['Timestamp']
-        if 'Timetaken' in sync_worker_stats:
-            self.timetaken = sync_worker_stats['Timetaken']
+        if 'TimeTaken' in sync_worker_stats:
+            self.timetaken = sync_worker_stats['TimeTaken']
 
     def __get_install_conf(self, format='json'):
 
@@ -55,7 +55,7 @@ class Sync_worker_stats:
             'Worker': self.worker,
             'Host': self.host,
             'Timestamp': self.timestamp,
-            'Timetaken': self.timetaken,
+            'TimeTaken': self.timetaken,
         }
         if format is 'json':
             return json.dumps(response)
@@ -65,12 +65,12 @@ class Sync_worker_stats:
         return response
 
     def set_item(self, sync_worker_stats):
-        if 'worker' in sync_worker_stats:
-            self.worker = sync_worker_stats['worker']
-        if 'host' in sync_worker_stats:
-            self.host = sync_worker_stats['host']
-        if 'timestamp' in sync_worker_stats:
-            self.timestamp = sync_worker_stats['timestamp']
-        if 'timetaken' in sync_worker_stats:
-            self.timetaken = sync_worker_stats['timetaken']
+        if 'Worker' in sync_worker_stats:
+            self.worker = sync_worker_stats['Worker']
+        if 'Host' in sync_worker_stats:
+            self.host = sync_worker_stats['Host']
+        if 'Timestamp' in sync_worker_stats:
+            self.timestamp = sync_worker_stats['Timestamp']
+        if 'TimeTaken' in sync_worker_stats:
+            self.timetaken = sync_worker_stats['TimeTaken']
 
