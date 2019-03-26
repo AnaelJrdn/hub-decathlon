@@ -9,6 +9,11 @@ import hashlib
 import json
 import urllib.parse
 from datetime import datetime, timedelta
+from decimal import *
+
+from tapiriik.helper.dynamodb.manager import DynamoManager
+from tapiriik.database.model.sync_workers import Sync_workers
+from boto3.dynamodb.conditions import Attr
 
 Sync = Sync()
 
@@ -31,8 +36,17 @@ def diag_queue_dashboard(req):
 
     stall_timeout = timedelta(minutes=1)
 
+    _dynamo_manager = DynamoManager()
+    _dynamo_manager.get_table('sync_workers')
+
+    # Get all current sync_workers
+    filter_expression = Attr('Process').ne(None) & Attr('Host').ne(None)
+    projection_expression = "id, Process, Host, HeartBeat, Startup, Version, #Indx, #Stte"
+    expression_attribute_names = {"#Indx": "Index", "#Stte": "State"}
+    context['allWorkers'] = _dynamo_manager.scan_all(filter_expression, projection_expression, expression_attribute_names)
+
     # We fetch this twice so the (orphaned) indicators are correct even if there were writes during all these other queries
-    context["allWorkerPIDsPre"] = [x["Process"] for x in db.sync_workers.find()]
+    context["allWorkerPIDsPre"] = [x["Process"] for x in context['allWorkers']]
 
     context["lockedSyncUsers"] = list(db.users.find({"SynchronizationWorker": {"$ne": None}}))
     context["lockedSyncRecords"] = len(context["lockedSyncUsers"])
@@ -44,8 +58,6 @@ def diag_queue_dashboard(req):
 
     context["errorUsersCt"] = db.users.find({"NonblockingSyncErrorCount": {"$gt": 0}}).count()
     context["exclusionUsers"] = db.users.find({"SyncExclusionCount": {"$gt": 0}}).count()
-
-    context["allWorkers"] = list(db.sync_workers.find())
 
     synchronizingUserIds = [x["User"] if "User" in x else None for x in context["allWorkers"]]
     context["duplicatedUserSynchronizations"] = set([x for x in synchronizingUserIds if synchronizingUserIds.count(x) > 1])
@@ -72,7 +84,24 @@ def diag_queue_dashboard(req):
 
     delta = False
     if "deleteStalledWorker" in req.POST:
-        db.sync_workers.remove({"Process": int(req.POST["pid"])})
+
+        # Get all sync_workers with same pid
+        filter_expression = Attr('Process').eq(Decimal(req.POST["pid"]))
+        projection_expression = "id, Process, Host, HeartBeat, #Indx, Startup, #Stte, Version, #Usr"
+        expression_attribute_names = {"#Indx": "Index", "#Stte": "State", "#Usr": "User"}
+
+        response = _dynamo_manager.scan(filter_expression, projection_expression, expression_attribute_names)
+        # If items are returned, delete them
+        if len(response['Items']) > 0:
+            # If sync_worker document exists, update it
+            for worker in response['Items']:
+                worker_elem = Sync_workers(worker).get_item('dict')
+                response = _dynamo_manager._table.delete_item(
+                    Key={
+                        'id': worker_elem['id'],
+                    }
+                )
+
         delta = True
     if "unlockOrphaned" in req.POST:
         orphanedUserIDs = [x["_id"] for x in context["lockedSyncUsers"] if x["SynchronizationWorker"] not in context["allWorkerPIDs"]]

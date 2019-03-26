@@ -10,6 +10,13 @@ from bson.objectid import ObjectId
 
 import copy
 
+from decimal import *
+
+from tapiriik.helper.dynamodb.manager import DynamoManager
+from tapiriik.database.model.sync_workers import Sync_workers
+from boto3.dynamodb.conditions import Attr
+
+_dynamo_manager = DynamoManager()
 
 class User:
 
@@ -22,10 +29,25 @@ class User:
     Sync = Sync()
     
     def Get(id):
-        return db.users.find_one({"_id": ObjectId(id)})
+        _dynamo_manager.get_table('users')
+        response = _dynamo_manager._table.get_item(Key={'id': id})
+        return response
+
+        #return db.users.find_one({"_id": ObjectId(id)})
 
     def GetByConnection(svcRec):
-        return db.users.find_one({"ConnectedServices.ID": svcRec._id})
+        # TODO : how to find this in dynamo ????
+        _dynamo_manager.get_table('users')
+
+        filter_expression = Attr('ConnectedServices.ID').eq(svcRec.id)
+        projection_expression = "id"
+        response = _dynamo_manager._table.scan(
+            FilterExpression=filter_expression,
+            ProjectionExpression=projection_expression
+        )
+        return response['Items']
+
+        #return db.users.find_one({"ConnectedServices.ID": svcRec._id})
 
     def Ensure(req):
         from ipware.ip import get_real_ip

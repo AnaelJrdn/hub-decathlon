@@ -21,6 +21,8 @@ class Sync_worker_stats:
         'ProvisionedThroughput': {'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5}
     }
 
+    _key_schema = ['id']
+
     id = None
     worker = None
     host = None

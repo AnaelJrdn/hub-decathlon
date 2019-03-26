@@ -44,6 +44,8 @@ class DynamoManager:
         print('[Helper DynamoDB]--- Helper is now using %s table' % DYNAMO_DB_PREFIX_TABLE+table)
         return self._table
 
+
+
     def insert(self, table, item, format='json'):
         self.get_table(table)
 
@@ -78,7 +80,7 @@ class DynamoManager:
     """
         Serie of function to get multiple lines
     """
-    def scan(self, filter_expression, projection_expression, expression_attribute_names):
+    def scan(self, filter_expression="", projection_expression="", expression_attribute_names=None):
         response = self._table.scan(
             FilterExpression=filter_expression,
             ProjectionExpression=projection_expression,
@@ -86,6 +88,17 @@ class DynamoManager:
         )
         self._response = response
         return response
+
+    def scan_all(self, filter_expression="", projection_expression="", expression_attribute_names=None):
+        response = self.scan(filter_expression, projection_expression, expression_attribute_names)
+
+        data = response['Items']
+
+        while 'LastEvaluatedKey' in response:
+            response = self.scan(filter_expression, projection_expression, expression_attribute_names)
+            data.extend(response['Items'])
+
+        return data
 
     def test_process(self):
         print('[Helper DynamoDB]--- Testing Dynamo manager')

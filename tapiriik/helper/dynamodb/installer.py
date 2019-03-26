@@ -49,6 +49,12 @@ class DynamoInstaller():
             'class_name': 'Sync_worker_stats'
         },
         {
+            'delete_before_create': False,
+            'table_name': 'sync_workers',
+            'file_name': 'sync_workers',
+            'class_name': 'Sync_workers'
+        },
+        {
             'delete_before_create': True,
             'table_name': 'test_anael',
             'file_name': 'test_anael',
